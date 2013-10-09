@@ -1,0 +1,177 @@
+#! /usr/bin/python
+#-*-coding: utf8 -*-
+
+# 使用艾宾浩斯法进行背单词的记录以及提醒。
+# add 增加一个条目，包括了id，name，time; time是要进行复习的时间
+#   暂时不加入完成后的更新功能。因为文件写入有点不是太清楚，后续再说。
+# show 后面如果没有参数就显示今天要复习的内容
+#      后面有具体的task就显示这个task的复习安排
+
+from datetime import date  # Get today's date
+from datetime import timedelta  # way to get the difference of two days
+import argparse
+import sys
+
+
+#data = {
+    #"id": "",
+    #"name": "",
+    #"time": [],
+    #"done": []
+#}
+
+
+# 输入名字构造要记录的条目
+def addItem(name, data):
+    day = date.today()
+    today = day.strftime("%Y/%m/%d")
+
+    time = []
+    #done = []
+    time.append(today)
+    #done.append(1)
+    time.append((day + timedelta(1)).strftime("%Y/%m/%d"))
+    #done.append(0)
+    time.append((day + timedelta(5)).strftime("%Y/%m/%d"))
+    #done.append(0)
+    time.append((day + timedelta(7)).strftime("%Y/%m/%d"))
+    #done.append(0)
+    time.append((day + timedelta(15)).strftime("%Y/%m/%d"))
+    #done.append(0)
+    time.append((day + timedelta(30)).strftime("%Y/%m/%d"))
+    #done.append(0)
+
+    data["name"] = name
+    data["time"] = time
+    #data["done"] = done
+
+
+# 将构造好的条目输出到数据文件中去
+def addToFile(data, db):
+    datafile = open(db, 'r')
+    string = datafile.readline()
+    if not string:
+        data["id"] = 1
+    else:
+        while string:
+            data["id"] = int(string.strip().split(';')[0]) + 1
+            string = datafile.readline()
+    datafile.close()
+
+    datafile = open(db, 'a')
+    keys = sorted(data.keys())
+    string = ';'.join(str(data[key]) for key in keys)
+    datafile.write(string + '\n')
+    datafile.close()
+
+
+# To fix:
+# 如何更新一个文件的内容
+def updateItem(name, db):
+    datafile = open(db, 'r+')
+    string = datafile.readline()
+    while string:
+        content = string.strip().split(';')
+        data = {}
+        data["id"] = content[0]
+        #data["done"] = content[1]
+        data["name"] = content[1]
+        data["time"] = content[2]
+        day = date.today()
+        today = day.strftime("%Y/%m/%d")
+
+        if name == data["name"]:
+            for i in range(0, 6):
+                if today == list(data["time"])[i]:
+                    list(data["done"])[i] = 0
+            keys = sorted(data.keys())
+            updateS = ';'.join(str(data[key]) for key in keys)
+            datafile.write(updateS + '\n')
+            break
+        string = datafile.readline()
+
+
+# 显示今日任务
+def showToday(db):
+    flag = 0
+    toReview = []
+    datafile = open(db, 'r')
+    string = datafile.readline()
+    day = date.today()
+    today = day.strftime('%Y/%m/%d')
+
+    while string:
+        content = string.strip().split(';')
+        data = {}
+        data['id'] = content[0]
+        data['name'] = content[1]
+        data['time'] = (temp[1:-1] for temp in content[2][1:-1].split(', '))
+
+        if today in data['time']:
+            flag = 1
+            toReview.append(data['name'])
+        string = datafile.readline()
+
+    datafile.close()
+
+    if flag:
+        print "Today, You have to review the tasks: "
+        for item in toReview:
+            print item
+    else:
+        print "Oops, you have none tasks, learn something new"
+
+
+# 显示任务要复习的日期
+def showTaskSchedule(name, db):
+    datafile = open(db, 'r')
+    string = datafile.readline()
+
+    while string:
+        content = string.strip().split(';')
+        data = {}
+        data['id'] = content[0]
+        data['name'] = content[1]
+        data['time'] = (temp[1:-1] for temp in content[2][1:-1].split(', '))
+        #data['time'] = content[2][1:-1].split(',')
+
+        if name == data['name']:
+            print "You have to review %s on:" % name
+            for item in data['time']:
+                print item
+            #for i in range(0, len(data['time'])):
+                #print data['time'][i]
+            break
+        string = datafile.readline()
+
+    datafile.close()
+
+
+def main():
+    db = "data.db"
+    #addItem("test4", data)
+    #addToFile(data, db)
+    #showToday(db)
+    #showTaskSchedule('test3', db)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-a", "--add", dest="add", help="Add something you have learned")
+    parser.add_argument("-s", "--show", dest="show", nargs="?", const="today",
+                        help="Show today's tasks you have to do, or the task schedule"
+                        )
+    args = parser.parse_args()
+
+    if args.add:
+        data = {}
+        addItem(args.add, data)
+        addToFile(data, db)
+
+    if args.show:
+        if args.show == 'today':
+            showToday(db)
+        else:
+            showTaskSchedule(args.show, db)
+
+    if not args.add and not args.show:
+        print "Enter %s -h for help" % sys.argv[0]
+
+main()
